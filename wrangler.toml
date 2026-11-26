@@ -1,0 +1,14 @@
+# livelihood_tody 댓글 → DM 웹훅 (Cloudflare Worker). 비밀 값은 Cloudflare 설정에서만: IG_TOKEN, APP_SECRET, VERIFY_TOKEN
+name = "instagram-message-auto"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+keep_vars = true
+
+[vars]
+IG_USER_ID = "17841459520374197"
+IG_USERNAME = "livelihood_tody"
+
+[[kv_namespaces]]
+binding = "STATE"
+id = "c7f70eb4edbc4fe4876fe10a42854b55"
