@@ -120,7 +120,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/privacy") return new Response(PRIVACY, { headers: { "content-type": "text/html; charset=utf-8" } });
     if (url.pathname === "/delete") return new Response(DELETE, { headers: { "content-type": "text/html; charset=utf-8" } });
-    if (url.pathname === "/health") return json({ ok: true, rules: RULES.filter((r) => r.active).map((r) => r.name), secrets: { IG_TOKEN: !!env.IG_TOKEN, APP_SECRET: !!env.APP_SECRET, VERIFY_TOKEN: !!env.VERIFY_TOKEN }, kv: !!env.STATE });
+    if (url.pathname === "/health") return json({ ok: true, rules: RULES.filter((r) => r.active).map((r) => r.name), secrets: { IG_TOKEN: !!env.IG_TOKEN, APP_SECRET: !!env.APP_SECRET, APP_SECRET2: !!env.APP_SECRET2, VERIFY_TOKEN: !!env.VERIFY_TOKEN }, kv: !!env.STATE });
     if (url.pathname === "/log") {
       if (!env.VERIFY_TOKEN || url.searchParams.get("k") !== env.VERIFY_TOKEN) return json({ error: "forbidden" }, 403);
       return json(JSON.parse((await env.STATE.get("log")) || "[]"));
@@ -144,7 +144,11 @@ export default {
 
     const body = await request.arrayBuffer();
     const sig = (request.headers.get("x-hub-signature-256") || "").replace(/^sha256=/, "");
-    if (!env.APP_SECRET || !sig || !safeEqual(sig, await hmacHex(env.APP_SECRET, body))) return new Response("bad signature", { status: 401 });
+    // 앱 두 개(livelihood tody · livelihood dm)의 서명을 모두 받음
+    const secrets = [env.APP_SECRET, env.APP_SECRET2].filter(Boolean);
+    let okSig = false;
+    for (const sc of secrets) if (sig && safeEqual(sig, await hmacHex(sc, body))) okSig = true;
+    if (!okSig) return new Response("bad signature", { status: 401 });
     let payload;
     try { payload = JSON.parse(new TextDecoder().decode(body)); } catch { return new Response("bad json", { status: 400 }); }
 

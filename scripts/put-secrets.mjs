@@ -5,7 +5,7 @@ import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const names = ["IG_TOKEN", "APP_SECRET", "VERIFY_TOKEN"];
+const names = ["IG_TOKEN", "APP_SECRET", "APP_SECRET2", "VERIFY_TOKEN"];
 const vals = Object.fromEntries(names.filter((n) => process.env[n]).map((n) => [n, process.env[n]]));
 const missing = names.filter((n) => !vals[n]);
 console.log(`put-secrets: 있음 ${Object.keys(vals).join(",") || "없음"} / 없음 ${missing.join(",") || "없음"}`);
