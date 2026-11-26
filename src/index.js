@@ -140,6 +140,9 @@ export default {
     try { payload = JSON.parse(new TextDecoder().decode(body)); } catch { return new Response("bad json", { status: 400 }); }
 
     const work = async () => {
+      // 수신 확인용 한 줄 (내용·사용자 이름 없이 필드와 개수만)
+      const kinds = (payload.entry || []).flatMap((e) => [...(e.changes || []).map((c) => c.field), ...(e.messaging || []).map(() => "messaging")]);
+      await log(env, `수신 ${payload.object || "?"} ${kinds.join(",") || "빈 이벤트"}`);
       for (const entry of payload.entry || []) {
         for (const ch of entry.changes || []) {
           if (ch.field === "comments") await onComment(env, ch.value || {}).catch((e) => log(env, "comment 오류 " + e));
