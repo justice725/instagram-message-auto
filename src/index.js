@@ -36,14 +36,12 @@ async function graph(env, method, path, params = {}, body = null) {
 const sendDM = (env, recipient, message) => graph(env, "POST", `${env.IG_USER_ID}/messages`, {}, { recipient, message });
 
 async function log(env, line) {
-  // 최근 200줄만 KV 에 보관 (/log 로 확인)
-  const k = "log";
-  const prev = JSON.parse((await env.STATE.get(k)) || "[]");
-  prev.push(`${new Date().toISOString()} ${line}`);
-  await env.STATE.put(k, JSON.stringify(prev.slice(-200)));
+  // 줄마다 따로 저장(동시에 써도 덮이지 않음), 14일 뒤 자동 삭제. /log 로 확인
+  const ts = new Date().toISOString();
+  await env.STATE.put(`l:${ts}:${Math.random().toString(36).slice(2, 8)}`, `${ts} ${line}`, { expirationTtl: 60 * 60 * 24 * 14 });
 }
 
-const OWN = new Set(["livelihood_tody", "history.magazine_", "history_per_day_"]);
+const OWN = new Set(["livelihood_tody", "history.magazine_", "history_per_day_", "mini_park__"]);
 
 async function onComment(env, v) {
   const cid = v.id;
@@ -123,7 +121,15 @@ export default {
     if (url.pathname === "/health") return json({ ok: true, rules: RULES.filter((r) => r.active).map((r) => r.name), secrets: { IG_TOKEN: !!env.IG_TOKEN, APP_SECRET: !!env.APP_SECRET, APP_SECRET2: !!env.APP_SECRET2, VERIFY_TOKEN: !!env.VERIFY_TOKEN }, kv: !!env.STATE });
     if (url.pathname === "/log") {
       if (!env.VERIFY_TOKEN || url.searchParams.get("k") !== env.VERIFY_TOKEN) return json({ error: "forbidden" }, 403);
-      return json(JSON.parse((await env.STATE.get("log")) || "[]"));
+      const old = JSON.parse((await env.STATE.get("log")) || "[]");
+      let keys = [], cursor;
+      do {
+        const r = await env.STATE.list({ prefix: "l:", cursor });
+        keys = keys.concat(r.keys.map((k) => k.name));
+        cursor = r.list_complete ? null : r.cursor;
+      } while (cursor);
+      const lines = await Promise.all(keys.slice(-200).map((k) => env.STATE.get(k)));
+      return json(old.concat(lines.filter(Boolean)).slice(-200));
     }
     if (url.pathname === "/claim") {
       // 이 PC의 15초 확인 도구(comment_dm.py)가 댓글을 처리하기 전에 부름 → 웹훅과 두 번 보내지 않게
