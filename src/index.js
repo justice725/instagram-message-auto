@@ -2,6 +2,7 @@
 // 2026-11-26. 비밀 값(IG_TOKEN, APP_SECRET, VERIFY_TOKEN)은 Cloudflare 설정에만 있고 코드·저장소에는 없음.
 // 규칙(릴스별 문구·링크)은 rules.json — 이 PC의 인스타/댓글DM_규칙.json 에서 토큰 없이 만들어 올림.
 import RULES from "../rules.json";
+import PRODUCTS from "../products.json";
 
 const GRAPH = "https://graph.facebook.com/v23.0";
 const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json" } });
@@ -100,6 +101,24 @@ async function onMessage(env, m) {
   await env.STATE.put(`p:${sender}`, JSON.stringify(p), { expirationTtl: 60 * 60 * 24 * 2 });
 }
 
+// 링크 모음 페이지(/link) — 참고 계정들(머니잉·인포크링크)처럼 번호 붙은 상품 목록 + 번호 검색 + 맨 위 수수료 고지 (2026-11-26)
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function linkPage() {
+  const items = PRODUCTS.map((p) => `<a class="it" href="${esc(p.link_url)}" rel="nofollow sponsored noopener" data-k="${p.no} ${esc(p.name)}"><b>${p.no}.</b> ${esc(p.name)}<span>›</span></a>`).join("");
+  return `<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>토디 | 오늘의 살림템 링크</title>
+<style>body{margin:0;font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:#FAF4EA;color:#3c281e}
+.w{max-width:520px;margin:0 auto;padding:18px 16px 40px}.ad{font-size:12px;color:#7a6a60;background:#fff;border-radius:10px;padding:10px 12px;line-height:1.5}
+h1{font-size:22px;margin:18px 0 4px;color:#E87A3C}p.s{margin:0 0 14px;font-size:14px}
+input{width:100%;box-sizing:border-box;font-size:17px;padding:12px 14px;border:2px solid #E87A3C;border-radius:12px;outline:none}
+.hint{font-size:13px;margin:8px 2px 14px;color:#7a6a60}.it{display:flex;gap:8px;align-items:center;background:#fff;border-radius:12px;padding:14px;margin:8px 0;color:#3c281e;text-decoration:none;font-size:16px;box-shadow:0 1px 2px #0001}
+.it b{color:#E87A3C;min-width:34px}.it span{margin-left:auto;color:#E87A3C;font-size:20px}</style>
+<div class="w"><div class="ad">이 페이지의 링크는 제휴 링크(애드픽·네이버 쇼핑커넥트)입니다. 링크를 통해 구매하시면 운영자가 일정액의 수수료를 받을 수 있습니다. 가격·쿠폰은 상품 페이지에서 꼭 확인해 주세요.</div>
+<h1>토디 · 오늘의 살림템</h1><p class="s">영상 속 제품 링크 모음 (@livelihood_tody)</p>
+<input id="q" inputmode="numeric" placeholder="영상에 나온 번호나 이름으로 찾기"><div class="hint">👆 상품 번호로 검색하면 바로 찾을 수 있어요</div>
+<div id="l">${items}</div></div>
+<script>const q=document.getElementById("q");q.oninput=()=>{const v=q.value.trim();for(const a of document.querySelectorAll(".it")){const k=a.dataset.k;a.style.display=!v||k.split(" ")[0]===v||k.includes(v)?"":"none"}}</script></html>`;
+}
+
 const PRIVACY = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>livelihood_tody 개인정보처리방침</title>
 <body style="font-family:sans-serif;max-width:720px;margin:40px auto;padding:0 16px;line-height:1.7">
 <h1>livelihood_tody 개인정보처리방침</h1>
@@ -116,6 +135,7 @@ const DELETE = `<!doctype html><meta charset="utf-8"><title>데이터 삭제 안
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if (url.pathname === "/link" || url.pathname === "/") return new Response(linkPage(), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300" } });
     if (url.pathname === "/privacy") return new Response(PRIVACY, { headers: { "content-type": "text/html; charset=utf-8" } });
     if (url.pathname === "/delete") return new Response(DELETE, { headers: { "content-type": "text/html; charset=utf-8" } });
     if (url.pathname === "/health") return json({ ok: true, rules: RULES.filter((r) => r.active).map((r) => r.name), secrets: { IG_TOKEN: !!env.IG_TOKEN, APP_SECRET: !!env.APP_SECRET, APP_SECRET2: !!env.APP_SECRET2, VERIFY_TOKEN: !!env.VERIFY_TOKEN }, kv: !!env.STATE });
