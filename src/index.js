@@ -148,7 +148,11 @@ export default {
     const secrets = [env.APP_SECRET, env.APP_SECRET2].filter(Boolean);
     let okSig = false;
     for (const sc of secrets) if (sig && safeEqual(sig, await hmacHex(sc, body))) okSig = true;
-    if (!okSig) return new Response("bad signature", { status: 401 });
+    if (!okSig) {
+      // 원인 확인용: 값은 남기지 않고 길이·개수만
+      ctx.waitUntil(log(env, `서명 불일치 (서명 ${sig.length}자, 비밀 ${secrets.length}개, 길이 ${secrets.map((x) => x.length).join("/")})`));
+      return new Response("bad signature", { status: 401 });
+    }
     let payload;
     try { payload = JSON.parse(new TextDecoder().decode(body)); } catch { return new Response("bad json", { status: 400 }); }
 
