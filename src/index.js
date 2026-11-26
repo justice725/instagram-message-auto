@@ -125,6 +125,15 @@ export default {
       if (!env.VERIFY_TOKEN || url.searchParams.get("k") !== env.VERIFY_TOKEN) return json({ error: "forbidden" }, 403);
       return json(JSON.parse((await env.STATE.get("log")) || "[]"));
     }
+    if (url.pathname === "/claim") {
+      // 이 PC의 15초 확인 도구(comment_dm.py)가 댓글을 처리하기 전에 부름 → 웹훅과 두 번 보내지 않게
+      if (!env.VERIFY_TOKEN || url.searchParams.get("k") !== env.VERIFY_TOKEN) return json({ error: "forbidden" }, 403);
+      const cid = url.searchParams.get("c") || "";
+      if (!/^\d+$/.test(cid)) return json({ error: "bad id" }, 400);
+      if (await env.STATE.get(`c:${cid}`)) return json({ claimed: false });
+      await env.STATE.put(`c:${cid}`, "poll", { expirationTtl: 60 * 60 * 24 * 30 });
+      return json({ claimed: true });
+    }
     if (url.pathname !== "/webhook") return new Response("livelihood_tody webhook", { status: 200 });
 
     if (request.method === "GET") {
